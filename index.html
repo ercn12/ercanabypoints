@@ -1,0 +1,479 @@
+<!DOCTYPE html><html lang="tr"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kick.com OAuth App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        kickGreen: '#53FC18',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen">
+    <!-- Dark mode detection -->
+    <script>
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+    </script>
+
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <header class="mb-8 text-center">
+            <div class="flex justify-center mb-4">
+                <div class="bg-black text-kickGreen font-bold px-4 py-2 rounded text-2xl">
+                    KICK
+                </div>
+            </div>
+            <h1 class="text-3xl font-bold mb-2">Kick.com OAuth Entegrasyonu</h1>
+            <p class="text-lg dark:text-gray-300">Kanal puanlarınızı kullanarak içerik paylaşın</p>
+        </header>
+
+        <main>
+            <!-- Authentication Section -->
+            <section id="auth-section" class="mb-8 p-6 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Kick.com Hesabınızla Giriş Yapın</h2>
+                <p class="mb-4">Bu uygulamayı kullanmak için Kick.com hesabınız ile giriş yapmanız gerekiyor.</p>
+                
+                <div id="login-container" class="flex justify-center">
+                    <button id="login-button" class="bg-primary hover:bg-primary/80 text-white font-bold py-3 px-6 rounded-lg flex items-center">
+                        <span>Kick.com ile Giriş Yap</span>
+                    </button>
+                </div>
+                
+                <div id="user-info" class="hidden mt-4 p-4 bg-white dark:bg-gray-700 rounded-lg">
+                    <div class="flex items-center">
+                        <div id="user-avatar" class="w-16 h-16 rounded-full bg-gray-300 mr-4"></div>
+                        <div>
+                            <h3 id="username" class="text-lg font-semibold"></h3>
+                            <p id="channel-points" class="text-kickGreen font-medium"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="auth-loading" class="hidden mt-4 text-center">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <p class="mt-2">Giriş yapılıyor...</p>
+                </div>
+                
+                <div id="auth-error" class="hidden mt-4 p-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
+                    <p id="auth-error-message"></p>
+                </div>
+            </section>
+            
+            <!-- Content Sharing Section -->
+            <section id="content-section" class="hidden mb-8 p-6 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">İçerik Paylaşımı</h2>
+                <p class="mb-4">Kanal puanlarınızı kullanarak aşağıdaki içerik tiplerini paylaşabilirsiniz:</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white dark:bg-gray-700 p-4 rounded-lg text-center">
+                        <h3 class="font-semibold mb-2">Resim</h3>
+                        <p class="text-sm mb-2">100 Puan</p>
+                        <button class="content-btn bg-primary hover:bg-primary/80 text-white py-2 px-4 rounded" data-type="image">Resim Gönder</button>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-700 p-4 rounded-lg text-center">
+                        <h3 class="font-semibold mb-2">Ses</h3>
+                        <p class="text-sm mb-2">200 Puan</p>
+                        <button class="content-btn bg-primary hover:bg-primary/80 text-white py-2 px-4 rounded" data-type="audio">Ses Gönder</button>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-700 p-4 rounded-lg text-center">
+                        <h3 class="font-semibold mb-2">Link</h3>
+                        <p class="text-sm mb-2">50 Puan</p>
+                        <button class="content-btn bg-primary hover:bg-primary/80 text-white py-2 px-4 rounded" data-type="link">Link Gönder</button>
+                    </div>
+                </div>
+                
+                <div id="content-form" class="hidden">
+                    <h3 id="content-form-title" class="font-semibold mb-2"></h3>
+                    
+                    <div id="image-form" class="hidden">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-1">Resim Yükle</label>
+                            <input type="file" accept="image/*" id="image-input" class="w-full p-2 border dark:border-gray-600 rounded dark:bg-gray-700">
+                        </div>
+                        <div id="image-preview" class="hidden mb-4">
+                            <img id="preview-image" class="max-w-full h-auto rounded" alt="Preview">
+                        </div>
+                    </div>
+                    
+                    <div id="audio-form" class="hidden">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-1">Ses Dosyası Yükle</label>
+                            <input type="file" accept="audio/*" id="audio-input" class="w-full p-2 border dark:border-gray-600 rounded dark:bg-gray-700">
+                        </div>
+                        <div id="audio-preview" class="hidden mb-4">
+                            <audio id="preview-audio" controls="" class="w-full"></audio>
+                        </div>
+                    </div>
+                    
+                    <div id="link-form" class="hidden">
+                        <div class="mb-4">
+                            <label for="link-input" class="block text-sm font-medium mb-1">Link URL</label>
+                            <input type="url" id="link-input" placeholder="https://..." class="w-full p-2 border dark:border-gray-600 rounded text-base dark:bg-gray-700">
+                        </div>
+                        <div class="mb-4">
+                            <label for="link-title" class="block text-sm font-medium mb-1">Link Başlığı</label>
+                            <input type="text" id="link-title" placeholder="Link başlığı" class="w-full p-2 border dark:border-gray-600 rounded text-base dark:bg-gray-700">
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end mt-4">
+                        <button id="cancel-content" class="bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded mr-2">
+                            İptal
+                        </button>
+                        <button id="submit-content" class="bg-primary hover:bg-primary/80 text-white font-bold py-2 px-4 rounded">
+                            Gönder
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="content-loading" class="hidden mt-4 text-center">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <p class="mt-2">İçerik gönderiliyor...</p>
+                </div>
+                
+                <div id="content-error" class="hidden mt-4 p-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
+                    <p id="content-error-message"></p>
+                </div>
+                
+                <div id="content-success" class="hidden mt-4 p-4 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg">
+                    <p id="content-success-message"></p>
+                </div>
+            </section>
+        </main>
+        
+        <footer class="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">
+            <p>Bu uygulama Kick.com API kullanılarak geliştirilmiştir</p>
+        </footer>
+    </div>
+
+    <script>
+        // OAuth configuration
+        const config = {
+            clientId: 'YOUR_CLIENT_ID', // Replace with your actual client ID
+            redirectUri: window.location.origin + window.location.pathname,
+            authEndpoint: 'https://id.kick.com/oauth/authorize',
+            tokenEndpoint: 'https://id.kick.com/oauth/token',
+            apiEndpoint: 'https://kick.com/api/v2', // Base API endpoint
+            scope: 'channel:read user:read', // Adjust scopes as needed
+        };
+        
+        // In-memory token storage (since localStorage isn't available)
+        let tokenData = null;
+        
+        // PKCE & OAuth helpers
+        function generateRandomString(length) {
+            const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            const values = new Uint32Array(length);
+            window.crypto.getRandomValues(values);
+            for (let i = 0; i < length; i++) {
+                result += charset[values[i] % charset.length];
+            }
+            return result;
+        }
+        
+        function sha256(plain) {
+            const hash = CryptoJS.SHA256(plain);
+            return hash.toString(CryptoJS.enc.Base64)
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+        
+        async function startOAuthFlow() {
+            // Show loading state
+            document.getElementById('login-container').classList.add('hidden');
+            document.getElementById('auth-loading').classList.remove('hidden');
+            document.getElementById('auth-error').classList.add('hidden');
+            
+            try {
+                // Generate PKCE verifier and challenge
+                const state = generateRandomString(32);
+                const codeVerifier = generateRandomString(64);
+                const codeChallenge = sha256(codeVerifier);
+                
+                // Store in sessionStorage (this is just for demo purposes, in a real app you'd need to handle this differently)
+                sessionStorage.setItem('kickAuthState', state);
+                sessionStorage.setItem('kickAuthVerifier', codeVerifier);
+                
+                // Build authorization URL
+                const authUrl = new URL(config.authEndpoint);
+                authUrl.searchParams.append('response_type', 'code');
+                authUrl.searchParams.append('client_id', config.clientId);
+                authUrl.searchParams.append('redirect_uri', config.redirectUri);
+                authUrl.searchParams.append('scope', config.scope);
+                authUrl.searchParams.append('state', state);
+                authUrl.searchParams.append('code_challenge', codeChallenge);
+                authUrl.searchParams.append('code_challenge_method', 'S256');
+                
+                // Notify user that they need to authorize
+                alert('Kick.com doğrulama sayfası açılacaktır. Lütfen giriş yapın ve uygulamaya izin verin.');
+                
+                // Open authorization URL in a new tab
+                window.open(authUrl.toString(), '_blank');
+                
+                // Show instructions for user
+                document.getElementById('auth-loading').classList.add('hidden');
+                document.getElementById('login-container').classList.remove('hidden');
+                
+                // Display a message about checking authorization in the new window
+                const loginBtn = document.getElementById('login-button');
+                loginBtn.textContent = 'Doğrulama Sayfasını Tekrar Aç';
+                
+            } catch (error) {
+                console.error('OAuth flow error:', error);
+                document.getElementById('auth-loading').classList.add('hidden');
+                document.getElementById('login-container').classList.remove('hidden');
+                document.getElementById('auth-error').classList.remove('hidden');
+                document.getElementById('auth-error-message').textContent = 'Doğrulama işlemi başlatılırken bir hata oluştu: ' + error.message;
+            }
+        }
+        
+        async function handleOAuthCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            const error = urlParams.get('error');
+            
+            // Clear URL parameters without refreshing the page
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+            
+            if (error) {
+                document.getElementById('auth-error').classList.remove('hidden');
+                document.getElementById('auth-error-message').textContent = 'Doğrulama hatası: ' + error;
+                return;
+            }
+            
+            if (code && state) {
+                // Show loading state
+                document.getElementById('login-container').classList.add('hidden');
+                document.getElementById('auth-loading').classList.remove('hidden');
+                
+                // Verify state
+                const savedState = sessionStorage.getItem('kickAuthState');
+                if (state !== savedState) {
+                    document.getElementById('auth-error').classList.remove('hidden');
+                    document.getElementById('auth-error-message').textContent = 'Güvenlik hatası: State değerleri eşleşmiyor.';
+                    document.getElementById('auth-loading').classList.add('hidden');
+                    document.getElementById('login-container').classList.remove('hidden');
+                    return;
+                }
+                
+                // Get code verifier
+                const codeVerifier = sessionStorage.getItem('kickAuthVerifier');
+                if (!codeVerifier) {
+                    document.getElementById('auth-error').classList.remove('hidden');
+                    document.getElementById('auth-error-message').textContent = 'Code verifier bulunamadı.';
+                    document.getElementById('auth-loading').classList.add('hidden');
+                    document.getElementById('login-container').classList.remove('hidden');
+                    return;
+                }
+                
+                try {
+                    // In a real app, you would make a secure server-side request here
+                    // For demo purposes, we'll show a success message instead
+                    // This part would normally exchange the authorization code for tokens
+
+                    // Successfully authenticated
+                    document.getElementById('auth-loading').classList.add('hidden');
+                    document.getElementById('auth-section').classList.add('hidden');
+                    document.getElementById('content-section').classList.remove('hidden');
+                    
+                    // Display mock user data
+                    mockUserLogin();
+                    
+                } catch (error) {
+                    console.error('Token exchange error:', error);
+                    document.getElementById('auth-loading').classList.add('hidden');
+                    document.getElementById('login-container').classList.remove('hidden');
+                    document.getElementById('auth-error').classList.remove('hidden');
+                    document.getElementById('auth-error-message').textContent = 'Token alınırken hata oluştu: ' + error.message;
+                }
+            }
+        }
+        
+        // Mock user login for demo purposes
+        function mockUserLogin() {
+            document.getElementById('username').textContent = 'DemoUser123';
+            document.getElementById('channel-points').textContent = '1500 Kanal Puanı';
+            document.getElementById('user-info').classList.remove('hidden');
+            
+            // Set avatar background
+            const userAvatar = document.getElementById('user-avatar');
+            userAvatar.style.backgroundImage = "url('https://i.imgur.com/CqY0zDI.jpg')";
+            userAvatar.style.backgroundSize = "cover";
+            userAvatar.style.backgroundPosition = "center";
+        }
+        
+        // UI interactions for content sharing
+        function setupContentInteractions() {
+            const contentButtons = document.querySelectorAll('.content-btn');
+            const contentForm = document.getElementById('content-form');
+            const cancelContent = document.getElementById('cancel-content');
+            const submitContent = document.getElementById('submit-content');
+            
+            // Image preview
+            const imageInput = document.getElementById('image-input');
+            imageInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const previewImage = document.getElementById('preview-image');
+                        previewImage.src = e.target.result;
+                        document.getElementById('image-preview').classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // Audio preview
+            const audioInput = document.getElementById('audio-input');
+            audioInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const previewAudio = document.getElementById('preview-audio');
+                        previewAudio.src = e.target.result;
+                        document.getElementById('audio-preview').classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // Content type selection
+            contentButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const type = this.getAttribute('data-type');
+                    
+                    // Hide all forms
+                    document.getElementById('image-form').classList.add('hidden');
+                    document.getElementById('audio-form').classList.add('hidden');
+                    document.getElementById('link-form').classList.add('hidden');
+                    
+                    // Reset preview
+                    document.getElementById('image-preview').classList.add('hidden');
+                    document.getElementById('audio-preview').classList.add('hidden');
+                    
+                    // Show form for selected type
+                    document.getElementById(`${type}-form`).classList.remove('hidden');
+                    
+                    // Set form title
+                    const titles = {
+                        'image': 'Resim Gönder (100 Puan)',
+                        'audio': 'Ses Gönder (200 Puan)',
+                        'link': 'Link Gönder (50 Puan)'
+                    };
+                    document.getElementById('content-form-title').textContent = titles[type];
+                    
+                    // Show form
+                    contentForm.classList.remove('hidden');
+                    
+                    // Store the selected type
+                    contentForm.setAttribute('data-type', type);
+                });
+            });
+            
+            // Cancel button
+            cancelContent.addEventListener('click', function() {
+                contentForm.classList.add('hidden');
+                document.getElementById('content-error').classList.add('hidden');
+                document.getElementById('content-success').classList.add('hidden');
+            });
+            
+            // Submit button
+            submitContent.addEventListener('click', async function() {
+                const type = contentForm.getAttribute('data-type');
+                
+                // Show loading state
+                document.getElementById('content-loading').classList.remove('hidden');
+                document.getElementById('content-error').classList.add('hidden');
+                document.getElementById('content-success').classList.add('hidden');
+                
+                try {
+                    // Simulate API call delay
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    // Mock successful submission
+                    document.getElementById('content-loading').classList.add('hidden');
+                    document.getElementById('content-success').classList.remove('hidden');
+                    
+                    const messages = {
+                        'image': 'Resim başarıyla gönderildi ve 100 puan harcandı.',
+                        'audio': 'Ses dosyası başarıyla gönderildi ve 200 puan harcandı.',
+                        'link': 'Link başarıyla gönderildi ve 50 puan harcandı.'
+                    };
+                    
+                    document.getElementById('content-success-message').textContent = messages[type];
+                    
+                    // Update points (mock)
+                    const pointsDisplay = document.getElementById('channel-points');
+                    const currentPoints = parseInt(pointsDisplay.textContent.split(' ')[0]);
+                    const costMap = {'image': 100, 'audio': 200, 'link': 50};
+                    const newPoints = currentPoints - costMap[type];
+                    pointsDisplay.textContent = `${newPoints} Kanal Puanı`;
+                    
+                    // Reset form
+                    contentForm.classList.add('hidden');
+                    
+                    // Reset form inputs
+                    if (type === 'image') {
+                        document.getElementById('image-input').value = '';
+                        document.getElementById('image-preview').classList.add('hidden');
+                    } else if (type === 'audio') {
+                        document.getElementById('audio-input').value = '';
+                        document.getElementById('audio-preview').classList.add('hidden');
+                    } else if (type === 'link') {
+                        document.getElementById('link-input').value = '';
+                        document.getElementById('link-title').value = '';
+                    }
+                    
+                } catch (error) {
+                    console.error('Content submission error:', error);
+                    document.getElementById('content-loading').classList.add('hidden');
+                    document.getElementById('content-error').classList.remove('hidden');
+                    document.getElementById('content-error-message').textContent = 'İçerik gönderilirken bir hata oluştu: ' + error.message;
+                }
+            });
+        }
+        
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up login button
+            document.getElementById('login-button').addEventListener('click', startOAuthFlow);
+            
+            // Set up content interactions
+            setupContentInteractions();
+            
+            // Check if we're handling an OAuth callback
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('code') || urlParams.has('error')) {
+                handleOAuthCallback();
+            }
+        });
+    </script>
+
+
+</body></html>
